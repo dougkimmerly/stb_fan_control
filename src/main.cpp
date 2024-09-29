@@ -22,14 +22,13 @@
 using namespace sensesp;
 
 // Create an instance of the sensor using its I2C interface
-Adafruit_INA260 ina260 = Adafruit_INA260();
-Adafruit_EMC2101  emc2101;
+Adafruit_INA260 ina260 = Adafruit_INA260();   // Power measurement breakout board
+Adafruit_EMC2101  emc2101;                    // Fan control breakout board
 
 // Fan state variables
 int currentFanSpeed = 0; // 0 = off, 1 = 50%, 2 = 70%, 3 = 100%
 const int fanSpeeds[] = {0,63,76,100};
-const int speed1Pin = 32;
-// pinmode(speed1Pin, OUTPUT);
+
 
 ////////////////////////////////////////////
 //Here you put all the functions you will need to call within the setup()
@@ -47,8 +46,9 @@ void setFanSpeed(int speedIndex) {
         debugD("Fan speed set to %d%%", (speedIndex + 1) * 50); // Print current speed (1 = 50%, etc.)
     }
 
-    
+
     // beginnings of code to provide led indicators of fan speed.
+
     // switch (speedIndex) {
     //     case 1 : analogWrite(32, HIGH); break;
     //     case 2 : analogWrite(33, HIGH); break;
@@ -65,14 +65,10 @@ void cycleFanSpeed() {
     setFanSpeed(currentFanSpeed);
 }
 
-// Definitions
-
-// Variables
-
-
-
-
+//////////////////////////////////////////////////////////////////
 // The setup function performs one-time application initialization.
+//////////////////////////////////////////////////////////////////
+
 void setup() {
   SetupLogging();
 
@@ -90,23 +86,23 @@ void setup() {
 
 
 
-// Set up the button input
+// Set up the button input for fan speed control
 const uint8_t kButtonPin = 35; // Use the appropriate GPIO pin for the button
 pinMode(kButtonPin, INPUT_PULLUP); // Pull-up resistor
 
 auto* button_input = new DigitalInputChange(kButtonPin, INPUT_PULLUP, CHANGE);
 button_input->connect_to(new LambdaConsumer<bool>(
     [=](bool input) { 
-        delay(300);  // avoid button bounce
-        if (input == LOW ) {  // Check if the button is pressed
-            cycleFanSpeed(); // Cycle through fan speeds
+        delay(300);            // avoid button bounce
+        if (input == LOW ) {   // Check if the button is pressed
+            cycleFanSpeed();   // Cycle through fan speeds
         }
     }
 ));
 
 
 
-  //   This is for the ina260 power measurement to set it up and read the power
+  //   Power Measurement ina260 set it up and read the power
   ina260.begin();
     // Read the sensor every 2 seconds
   unsigned int read_interval_ina = 100;
@@ -116,10 +112,7 @@ button_input->connect_to(new LambdaConsumer<bool>(
       new RepeatSensor<float>(read_interval_ina, read_power_callback);
 
  
- 
- 
- 
-  // This is for the emc2101 fan control board
+  // Fan Control Board emc2101 set up to read
   emc2101.begin();
   unsigned int read_interval_emc = 500;
   auto* int_temp =
@@ -136,18 +129,16 @@ button_input->connect_to(new LambdaConsumer<bool>(
   //  These are all the readings being sent to SignalK
   ////////////////////////////////////////////
 
-
-
   fan_control_power
-    ->connect_to(new MovingAverage(15, 1.0,
-         "/Sensors/StbFan/Power/avg"))
-  ->connect_to(new SKOutputFloat(
-      "sensors.stb_fan_power",         // Signal K path
-      "/Sensors/StbFan/Power",        // configuration path, used in the
-                                              // web UI and for storing the
-                                              // configuration
-      new SKMetadata("W",                     // Define output units
-                     "Stb Fan Watts")  // Value description
+     ->connect_to(new MovingAverage(15, 1.0,
+        "/Sensors/StbFan/Power/avg"))
+     ->connect_to(new SKOutputFloat(
+       "sensors.stb_fan_power",                // Signal K path
+       "/Sensors/StbFan/Power",                // configuration path, used in the
+                                               // web UI and for storing the
+                                               // configuration
+       new SKMetadata("W",                     // Define output units
+                     "Stb Fan Watts")          // Value description
       ));
 
 
@@ -162,9 +153,9 @@ button_input->connect_to(new LambdaConsumer<bool>(
       ));
 
   fan_tach
-  ->connect_to(new MovingAverage(25, 1.0,
+     ->connect_to(new MovingAverage(25, 1.0,
          "/Sensors/StbFan/RPM/avg"))
-  ->connect_to(new SKOutputInt(
+     ->connect_to(new SKOutputInt(
       "sensors.stb_fan_tach",         // Signal K path
       "/Sensors/StbFan/RPM",        // configuration path, used in the
                                               // web UI and for storing the
