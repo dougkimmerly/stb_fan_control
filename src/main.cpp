@@ -1,12 +1,4 @@
-// Signal K application template file.
-//
-// This application demonstrates core SensESP concepts in a very
-// concise manner. You can build and upload the application as is
-// and observe the value changes on the serial port monitor.
-//
-// You can use this source file as a basis for your own projects.
-// Remove the parts that are not relevant to you, and add your own code
-// for external hardware libraries.
+// Signal K & SensESP fan control 
 
 #include "sensesp/sensors/analog_input.h"
 #include "sensesp/sensors/digital_input.h"
@@ -86,28 +78,23 @@ void setup() {
 
 
 
-// Set up the button input for fan speed control
-const uint8_t kButtonPin = 35; // Use the appropriate GPIO pin for the button
-pinMode(kButtonPin, INPUT_PULLUP); // Pull-up resistor
+  // Set up the button input for fan speed control
+  const uint8_t kButtonPin = 35; // Use the appropriate GPIO pin for the button
+  pinMode(kButtonPin, INPUT_PULLUP); // Pull-up resistor
 
-auto* button_input = new DigitalInputChange(kButtonPin, INPUT_PULLUP, CHANGE);
-button_input->connect_to(new LambdaConsumer<bool>(
-    [=](bool input) { 
-        delay(300);            // avoid button bounce
-        if (input == LOW ) {   // Check if the button is pressed
-            cycleFanSpeed();   // Cycle through fan speeds
-        }
-    }
-));
+  auto* button_input = new DigitalInputChange(kButtonPin, INPUT_PULLUP, CHANGE);
+  button_input->connect_to(new LambdaConsumer<bool>(
+      [=](bool input) { 
+          delay(300);            // avoid button bounce
+          if (input == LOW ) {   // Check if the button is pressed
+              cycleFanSpeed();   // Cycle through fan speeds
+          }
+       }
+  ));
 
-
-
-  //   Power Measurement ina260 set it up and read the power
+  // Power Measurement ina260 set it up and read the power
   ina260.begin();
-    // Read the sensor every 2 seconds
   unsigned int read_interval_ina = 100;
-  // Create a RepeatSensor with float output that reads the temperature
-  // using the function defined above.
   auto* fan_control_power =
       new RepeatSensor<float>(read_interval_ina, read_power_callback);
 
@@ -115,14 +102,17 @@ button_input->connect_to(new LambdaConsumer<bool>(
   // Fan Control Board emc2101 set up to read
   emc2101.begin();
   unsigned int read_interval_emc = 500;
+
+  // Read the temperature
   auto* int_temp =
       new RepeatSensor<float>(read_interval_emc, read_int_temp);
 
-  // read the tach
+  // Read the tachometer
   auto* fan_tach = 
       new RepeatSensor<float>(read_interval_emc, read_tach );
-
-    setFanSpeed(currentFanSpeed);
+  
+  // Initial setting of the fan speed
+  setFanSpeed(currentFanSpeed);
 
 
   ////////////////////////////////////////////
@@ -131,10 +121,10 @@ button_input->connect_to(new LambdaConsumer<bool>(
 
   fan_control_power
      ->connect_to(new MovingAverage(15, 1.0,
-        "/Sensors/StbFan/Power/avg"))
+      "/Sensors/StbFan/Power/avg"))
      ->connect_to(new SKOutputFloat(
-       "sensors.stb_fan_power",                // Signal K path
-       "/Sensors/StbFan/Power",                // configuration path, used in the
+      "sensors.stb_fan_power",                 // Signal K path
+      "/Sensors/StbFan/Power",                 // configuration path, used in the
                                                // web UI and for storing the
                                                // configuration
        new SKMetadata("W",                     // Define output units
@@ -144,24 +134,24 @@ button_input->connect_to(new LambdaConsumer<bool>(
 
 
   int_temp->connect_to(new SKOutputFloat(
-      "sensors.stb_fan_inttemp",         // Signal K path
-      "/Sensors/StbFan/IntTemp",        // configuration path, used in the
-                                              // web UI and for storing the
-                                              // configuration
-      new SKMetadata("K",                     // Define output units
+      "sensors.stb_fan_inttemp",               // Signal K path
+      "/Sensors/StbFan/IntTemp",               // configuration path, used in the
+                                               // web UI and for storing the
+                                               // configuration
+      new SKMetadata("K",                      // Define output units
                      "Stb Fan Internal Temp")  // Value description
       ));
 
   fan_tach
      ->connect_to(new MovingAverage(25, 1.0,
-         "/Sensors/StbFan/RPM/avg"))
+      "/Sensors/StbFan/RPM/avg"))
      ->connect_to(new SKOutputInt(
-      "sensors.stb_fan_tach",         // Signal K path
-      "/Sensors/StbFan/RPM",        // configuration path, used in the
-                                              // web UI and for storing the
-                                              // configuration
-      new SKMetadata("RPM",                     // Define output units
-                     "Stb Fan Tach")  // Value description
+      "sensors.stb_fan_tach",                  // Signal K path
+      "/Sensors/StbFan/RPM",                   // configuration path, used in the
+                                               // web UI and for storing the
+                                               // configuration
+      new SKMetadata("RPM",                    // Define output units
+                     "Stb Fan Tach")           // Value description
       ));
 
 }
