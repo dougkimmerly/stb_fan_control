@@ -1,9 +1,6 @@
-# SensESP Project Template
+# SensESP Fan Control Project
 
-This repository provides a template for [SensESP](https://github.com/SignalK/SensESP/) projects.
-Fork, clone or download the repository and try building and uploading the project to an ESP32 device.
-You should immediately see output on the serial monitor!
-
-To customize the template for your own purposes, edit the `src/main.cpp` and `platformio.ini` files.
+Based on the standard template to be able to control a fan.  This will be used for exhaust fans on the boat and will allow for on off and speed control of pwm fans.  
 
 Comprehensive documentation for SensESP, including how to get started with your own project, is available at the [SensESP documentation site](https://signalk.org/SensESP/).
+
