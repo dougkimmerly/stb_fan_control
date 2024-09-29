@@ -19,7 +19,15 @@ Adafruit_EMC2101  emc2101;                    // Fan control breakout board
 
 // Fan state variables
 int currentFanSpeed = 0; // 0 = off, 1 = 50%, 2 = 70%, 3 = 100%
-const int fanSpeeds[] = {0,63,76,100};
+const int fanSpeeds[] = {0,63,70,100};
+
+// Define acceptable RPM ranges for each speed setting
+const int rpmRanges[][2] = {
+    {0, 0},        // Off
+    {600, 900},    // 50% speed
+    {1000, 1300},   // 70% speed
+    {1700, 1900}   // 100% speed
+};
 
 
 ////////////////////////////////////////////
@@ -29,7 +37,19 @@ const int fanSpeeds[] = {0,63,76,100};
 
 float read_power_callback() { return (ina260.readPower() / 1000); }
 float read_int_temp() { return (emc2101.getInternalTemperature()+ 273.15); }
-float read_tach() { return (emc2101.getFanRPM());}
+float read_tach() { 
+    int tachReading {};
+    int tachTotal {};
+    int tachNum {};
+    for(int i=1;i<10;++i){
+        delay(50);
+        tachReading=emc2101.getFanRPM();
+        tachTotal += tachReading;
+        tachNum = i; 
+    }
+    return (tachTotal/tachNum);
+    }
+
 
 // Function to set fan speed
 void setFanSpeed(int speedIndex) {
@@ -55,6 +75,15 @@ void setFanSpeed(int speedIndex) {
 void cycleFanSpeed() {
     currentFanSpeed = (currentFanSpeed + 1) % (sizeof(fanSpeeds) / sizeof(fanSpeeds[0])); // Cycle through speeds
     setFanSpeed(currentFanSpeed);
+}
+
+// Function to check if current RPM is in the acceptable range
+bool isSpeedInRange(int speedIndex, float currentRPM) {
+    if (speedIndex >= 0 && speedIndex < sizeof(rpmRanges) / sizeof(rpmRanges[0])) {
+        const int* range = rpmRanges[speedIndex];
+        return (currentRPM >= range[0] && currentRPM <= range[1]);
+    }
+    return false;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -101,7 +130,7 @@ void setup() {
  
   // Fan Control Board emc2101 set up to read
   emc2101.begin();
-  unsigned int read_interval_emc = 500;
+  unsigned int read_interval_emc = 1200;
 
   // Read the temperature
   auto* int_temp =
@@ -112,8 +141,17 @@ void setup() {
       new RepeatSensor<float>(read_interval_emc, read_tach );
   
   // Initial setting of the fan speed
-  setFanSpeed(currentFanSpeed);
+//   setFanSpeed(currentFanSpeed);
 
+  // Check RPM and adjust fan speed if out of range
+SensESPBaseApp::get_event_loop()->onRepeat(
+  5000,
+  []() { float currentRPM = read_tach(); // Get the current RPM
+      if (!isSpeedInRange(currentFanSpeed, currentRPM)) 
+         {setFanSpeed(currentFanSpeed);
+         debugD("Adjusted fan speed to match RPM.");
+     } }
+  );
 
   ////////////////////////////////////////////
   //  These are all the readings being sent to SignalK
@@ -143,8 +181,8 @@ void setup() {
       ));
 
   fan_tach
-     ->connect_to(new MovingAverage(25, 1.0,
-      "/Sensors/StbFan/RPM/avg"))
+    //  ->connect_to(new MovingAverage(3, 1.0,
+    //   "/Sensors/StbFan/RPM/avg"))
      ->connect_to(new SKOutputInt(
       "sensors.stb_fan_tach",                  // Signal K path
       "/Sensors/StbFan/RPM",                   // configuration path, used in the
