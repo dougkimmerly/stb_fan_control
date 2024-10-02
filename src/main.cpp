@@ -24,15 +24,6 @@ int currentFanSpeed = 0; // 0 = off, 1 = 50%, 2 = 70%, 3 = 100%
 int SpeedSetting = currentFanSpeed;
 const int fanSpeeds[] = {0,61,74,100};
 
-// Define acceptable RPM ranges for each speed setting
-const int rpmRanges[][2] = {
-    {0, 0},        // Off
-    {600, 900},    // 50% speed
-    {1000, 1400},   // 70% speed
-    {1700, 1900}   // 100% speed
-};
-
-
 ////////////////////////////////////////////
 //Here you put all the functions you will need to call within the setup()
 ////////////////////////////////////////////
@@ -51,40 +42,18 @@ float read_tach() {
     return (tachTotal/tachNum);
     }
 
-
 // Function to set fan speed
 void setFanSpeed(int speedIndex) {
     if (speedIndex >= 0 && speedIndex < sizeof(fanSpeeds) / sizeof(fanSpeeds[0])) {
         emc2101.setDutyCycle(fanSpeeds[speedIndex]); // Set the fan speed using PWM
         ESP_LOGD(__FILE__,"Fan speed set to %d%%", (speedIndex + 1) * 50); // Print current speed (1 = 50%, etc.)
     }
-
-
-    // beginnings of code to provide led indicators of fan speed.
-
-    // switch (speedIndex) {
-    //     case 1 : analogWrite(32, HIGH); break;
-    //     case 2 : analogWrite(33, HIGH); break;
-    //     case 3 : analogWrite(34, HIGH); break;
-    //     default: {analogWrite(32, LOW);
-    //               analogWrite(33, LOW);
-    //               analogWrite(34, LOW);}
-    // }
 }
 
 // Toggle function to cycle through fan speeds
 void cycleFanSpeed() {
     currentFanSpeed = (currentFanSpeed + 1) % (sizeof(fanSpeeds) / sizeof(fanSpeeds[0])); // Cycle through speeds
     setFanSpeed(currentFanSpeed);
-}
-
-// Function to check if current RPM is in the acceptable range
-bool isSpeedInRange(int speedIndex, float currentRPM) {
-    if (speedIndex >= 0 && speedIndex < sizeof(rpmRanges) / sizeof(rpmRanges[0])) {
-        const int* range = rpmRanges[speedIndex];
-        return (currentRPM >= range[0] && currentRPM <= range[1]);
-    }
-    return false;
 }
 
 // Create a WebServer instance
@@ -218,8 +187,6 @@ void setup() {
                     ->enable_ota("transport")
                     ->get_app();
 
-
-
   // Set up the button input for fan speed control
   const uint8_t kButtonPin = 35; // Use the appropriate GPIO pin for the button
   pinMode(kButtonPin, INPUT_PULLUP); // Pull-up resistor
@@ -240,7 +207,6 @@ void setup() {
   unsigned int read_interval_ina = 10000;
   auto* fan_control_power =
       new RepeatSensor<float>(read_interval_ina, read_power_callback);
-
  
   // Fan Control Board emc2101 set up to read
   emc2101.begin();
@@ -257,16 +223,6 @@ void setup() {
   auto* fan_tach = 
       new RepeatSensor<float>(read_interval_emc, read_tach );
   
-
-  // Check RPM and adjust fan speed if out of range
-SensESPBaseApp::get_event_loop()->onRepeat(
-  5000,
-  []() { float currentRPM = read_tach(); // Get the current RPM
-      if (!isSpeedInRange(currentFanSpeed, currentRPM)) 
-         {setFanSpeed(currentFanSpeed);
-         ESP_LOGD(__FILE__,"Adjusted fan speed to match RPM.");
-     } }
-  );
    // Create a Sensor for sharing the variable currentFanSpeed
 auto* speedSettingSensor = new RepeatSensor<int>(500, []() { return currentFanSpeed; });
   // Create a Sensor for reading the duty cycle from the emc2101
