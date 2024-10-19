@@ -194,7 +194,7 @@ void setup() {
   auto* button_input = new DigitalInputChange(kButtonPin, INPUT_PULLUP, CHANGE);
   button_input->connect_to(new LambdaConsumer<bool>(
       [=](bool input) { 
-          delay(300);            // avoid button bounce
+          delay(200);            // avoid button bounce
           if (input == LOW ) {   // Check if the button is pressed
               cycleFanSpeed();   // Cycle through fan speeds
           }
@@ -228,6 +228,8 @@ auto* speedSettingSensor = new RepeatSensor<int>(500, []() { return currentFanSp
   // Create a Sensor for reading the duty cycle from the emc2101
 auto* currentDutyCycle = new RepeatSensor<int>(500, []() { return (emc2101.getDutyCycle()); });
 
+   
+   
     // Register the handler for the root URL to serve the HTML page
     server.on("/", HTTP_GET, handleRoot);
     
