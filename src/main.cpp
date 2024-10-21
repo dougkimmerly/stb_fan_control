@@ -22,13 +22,32 @@ Adafruit_EMC2101  emc2101;                    // Fan control breakout board
 // Fan state variables
 int currentFanSpeed = 0; // 0 = off, 1 = 50%, 2 = 70%, 3 = 100%
 int SpeedSetting = currentFanSpeed;
-const int fanSpeeds[] = {0,61,74,100};
+const int fanSpeeds[] = {0,60,66,100};
+float currentPower = 0;
+int currentRPM = 0;
+float currentTemp = 0;
+
 
 ////////////////////////////////////////////
 //Here you put all the functions you will need to call within the setup()
 ////////////////////////////////////////////
-float read_power_callback() { return (ina260.readPower() / 1000); }
-float read_int_temp() { return (emc2101.getInternalTemperature()+ 273.15); }
+float read_power_callback() { 
+    float pow=0;
+    float powTotal=0;
+    int powNum=0;
+    for(int i=1;i<5;++i){
+        powTotal=powTotal+(ina260.readPower()/1000);
+        delay(3);
+        powNum=i;
+
+    }
+    currentPower = (powTotal*1.1)/powNum;
+    return (currentPower); 
+    }
+float read_int_temp() {
+    currentTemp = emc2101.getInternalTemperature()+ 273.15;
+     return (currentTemp); 
+     }
 float read_tach() { 
     int tachReading {};
     int tachTotal {};
@@ -39,7 +58,8 @@ float read_tach() {
         tachTotal += tachReading;
         tachNum = i; 
     }
-    return (tachTotal/tachNum);
+    currentRPM = tachTotal/tachNum;
+    return (currentRPM);
     }
 
 // Function to set fan speed
@@ -65,7 +85,7 @@ const char* htmlPage = R"rawliteral(
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Fan Speed Control</title>
+    <title>Starboard Fan Speed Control</title>
     <style>
         body { font-family: Arial; }
         h1 { text-align: center; }
@@ -74,7 +94,7 @@ const char* htmlPage = R"rawliteral(
     </style>
 </head>
 <body>
-    <h1>Fan Speed Control</h1>
+    <h1>Starboard Fan Speed Control</h1>
     <div class="status">
         <p id="currentSpeed">Current Speed: 0 (Off)</p>
         <p id="currentRPM">Current RPM: 0</p>
@@ -159,9 +179,9 @@ void handleGetStatus() {
     String response;
     response += "{";
     response += "\"currentSpeed\":" + String(currentFanSpeed) + ",";
-    response += "\"currentRPM\":" + String(read_tach()) + ","; // Get current RPM
-    response += "\"currentTemp\":" + String(read_int_temp() - 273.15) + ","; // Convert to Celsius
-    response += "\"currentPower\":" + String(ina260.readPower() / 1000.0); // Get power in Watts
+    response += "\"currentRPM\":" + String(currentRPM) + ","; // Get current RPM
+    response += "\"currentTemp\":" + String(currentTemp - 273.15) + ","; // Convert to Celsius
+    response += "\"currentPower\":" + String(currentPower); // Get power in Watts
     response += "}"; // Close the JSON object
 
     server.send(200, "application/json", response); // Send JSON response
@@ -194,7 +214,7 @@ void setup() {
   auto* button_input = new DigitalInputChange(kButtonPin, INPUT_PULLUP, CHANGE);
   button_input->connect_to(new LambdaConsumer<bool>(
       [=](bool input) { 
-          delay(200);            // avoid button bounce
+          delay(50);            // avoid button bounce
           if (input == LOW ) {   // Check if the button is pressed
               cycleFanSpeed();   // Cycle through fan speeds
           }
@@ -204,7 +224,7 @@ void setup() {
   // Power Measurement ina260 set it up and read the power
   ina260.begin();
 
-  unsigned int read_interval_ina = 10000;
+  unsigned int read_interval_ina = 1000;
   auto* fan_control_power =
       new RepeatSensor<float>(read_interval_ina, read_power_callback);
  
@@ -250,7 +270,7 @@ auto* currentDutyCycle = new RepeatSensor<int>(500, []() { return (emc2101.getDu
 
   fan_control_power
      ->connect_to(new MovingAverage(15, 1.0,
-      "/Sensors/StbFan/Power/avg"))
+      "/Sensors/PrtFan/Power/avg"))
      ->connect_to(new SKOutputFloat(
       "sensors.stb_fan_power",                 // Signal K path
       "/Sensors/StbFan/Power",                 // configuration path, used in the
